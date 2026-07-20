@@ -1,0 +1,7 @@
+# Binaries
+/sealpup
+/dist/
+
+# Go
+*.test
+*.out
