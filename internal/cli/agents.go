@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Photon48/sealpup/internal/agents"
 )
@@ -21,4 +22,13 @@ func agentLabel(ags []agents.Agent) string {
 		label += fmt.Sprintf(" +%d", len(ags)-1)
 	}
 	return label
+}
+
+// describeAgents lists every agent with its pid, for the delete refusal message.
+func describeAgents(ags []agents.Agent) string {
+	parts := make([]string, len(ags))
+	for i, a := range ags {
+		parts[i] = fmt.Sprintf("%s (pid %d)", a.Name, a.PID)
+	}
+	return strings.Join(parts, ", ")
 }

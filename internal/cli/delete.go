@@ -80,6 +80,16 @@ func cmdDelete(e Env, args []string) error {
 		)
 	}
 
+	// Guard against pulling a worktree out from under a running coding agent.
+	if !*force {
+		if ags := detectAgents([]string{wt.Path})[wt.Path]; len(ags) > 0 {
+			return ui.Hintf(
+				"an agent is running in the worktree for "+quote(branch)+": "+describeAgents(ags),
+				"stop it first, or rerun with --force",
+			)
+		}
+	}
+
 	if err := git.RemoveWorktree(e.Dir, wt.Path, *force); err != nil {
 		return err
 	}

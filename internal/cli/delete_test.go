@@ -6,8 +6,46 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Photon48/sealpup/internal/agents"
 	"github.com/Photon48/sealpup/internal/git/gittest"
 )
+
+func TestDelete_RefusesWhenAgentRunning(t *testing.T) {
+	repo := gittest.New(t)
+	wt := makeWorktree(t, repo, "busy")
+	key := repo.Git("-C", wt, "rev-parse", "--show-toplevel")
+	stubAgents(t, map[string][]agents.Agent{
+		key: {{PID: 4812, Name: "claude"}},
+	})
+
+	e, _, errb := testEnv(repo.Dir)
+	if code := Run(e, []string{"delete", "busy"}); code != 1 {
+		t.Fatalf("delete with agent exit = %d, want 1", code)
+	}
+	if !strings.Contains(errb.String(), "claude (pid 4812)") || !strings.Contains(errb.String(), "--force") {
+		t.Errorf("expected agent refusal with --force hint, got %q", errb.String())
+	}
+	if !strings.Contains(repo.Git("worktree", "list", "--porcelain"), "busy") {
+		t.Error("worktree should still exist after refusal")
+	}
+}
+
+func TestDelete_ForceBypassesAgent(t *testing.T) {
+	repo := gittest.New(t)
+	wt := makeWorktree(t, repo, "busy")
+	key := repo.Git("-C", wt, "rev-parse", "--show-toplevel")
+	stubAgents(t, map[string][]agents.Agent{
+		key: {{PID: 4812, Name: "claude"}},
+	})
+
+	e, _, errb := testEnv(repo.Dir)
+	if code := Run(e, []string{"delete", "--force", "busy"}); code != 0 {
+		t.Fatalf("force delete exit = %d, want 0\n%s", code, errb.String())
+	}
+	if strings.Contains(repo.Git("worktree", "list", "--porcelain"), "busy") {
+		t.Error("worktree should be removed under --force despite agent")
+	}
+}
 
 // makeWorktree adds a worktree for a new branch and returns its path.
 func makeWorktree(t *testing.T, repo *gittest.Repo, branch string) string {
