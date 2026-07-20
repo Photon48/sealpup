@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Photon48/sealpup/internal/config"
 	"github.com/Photon48/sealpup/internal/git"
 	"github.com/Photon48/sealpup/internal/ui"
 )
@@ -43,6 +44,13 @@ func cmdNew(e Env, args []string) error {
 		return err
 	}
 
+	// Load hooks config before creating anything, so a malformed .sealpup.toml
+	// aborts before a half-set-up worktree exists.
+	cfg, err := config.Load(repo.MainDir)
+	if err != nil {
+		return err
+	}
+
 	if git.BranchExists(e.Dir, branch) {
 		// Branch exists but isn't checked out anywhere — make a worktree for it.
 		if !e.confirm("Branch "+quote(branch)+" already exists. Create a worktree for it?", true) {
@@ -64,6 +72,9 @@ func cmdNew(e Env, args []string) error {
 	}
 
 	e.prompter().Successf("created worktree for %s at %s", branch, prettyPath(dir))
+	if err := e.runCreateHooks(cfg, repo.MainDir, branch, dir); err != nil {
+		return err
+	}
 	return e.emitPath(dir)
 }
 

@@ -19,9 +19,9 @@ type Agent struct {
 
 // proc is a candidate process: its argv[0] (comm) and full command line (args).
 type proc struct {
-	pid   int
-	comm  string
-	args  string
+	pid  int
+	comm string
+	args string
 }
 
 // defaultAgents are the process names sealpup recognizes out of the box. Match

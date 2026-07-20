@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 
+	"github.com/Photon48/sealpup/internal/config"
 	"github.com/Photon48/sealpup/internal/git"
 	"github.com/Photon48/sealpup/internal/ui"
 )
@@ -61,6 +62,10 @@ func (e Env) createAndEnter(repo *git.Repo, branch string, wts []git.Worktree) e
 	if err != nil {
 		return err
 	}
+	cfg, err := config.Load(repo.MainDir)
+	if err != nil {
+		return err
+	}
 	if err := ensureContainer(repo); err != nil {
 		return err
 	}
@@ -68,6 +73,9 @@ func (e Env) createAndEnter(repo *git.Repo, branch string, wts []git.Worktree) e
 		return err
 	}
 	e.prompter().Successf("created worktree for %s at %s", branch, prettyPath(dir))
+	if err := e.runCreateHooks(cfg, repo.MainDir, branch, dir); err != nil {
+		return err
+	}
 	return e.emitPath(dir)
 }
 

@@ -20,10 +20,10 @@ func names(agents []Agent) []string {
 func TestMatchProcs(t *testing.T) {
 	known := knownNames() // defaults; SEALPUP_AGENTS unset
 	procs := []proc{
-		{pid: 19278, comm: "claude", args: "claude --dangerously-skip-permissions"}, // real claude
-		{pid: 500, comm: "AMPDeviceDiscoveryAgent", args: "/usr/libexec/AMPDeviceDiscoveryAgent"}, // must NOT match "amp"
+		{pid: 19278, comm: "claude", args: "claude --dangerously-skip-permissions"},                   // real claude
+		{pid: 500, comm: "AMPDeviceDiscoveryAgent", args: "/usr/libexec/AMPDeviceDiscoveryAgent"},     // must NOT match "amp"
 		{pid: 601, comm: "node", args: "node /Users/x/.nvm/versions/node/v20/bin/gemini --model pro"}, // interpreter fallback
-		{pid: 42, comm: "/bin/sleep", args: "/bin/sleep 60"}, // full-path, not an agent
+		{pid: 42, comm: "/bin/sleep", args: "/bin/sleep 60"},                                          // full-path, not an agent
 		{pid: 77, comm: "aider", args: "aider"},
 	}
 	got := names(matchProcs(procs, known))
@@ -115,4 +115,3 @@ func TestKnownNames_EnvMerge(t *testing.T) {
 		t.Errorf("empty name should be ignored")
 	}
 }
-
