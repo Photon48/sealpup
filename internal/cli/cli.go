@@ -14,7 +14,7 @@ import (
 
 // version is the sealpup release string, overridable at build time via
 // -ldflags "-X github.com/Photon48/sealpup/internal/cli.version=...".
-var version = "0.1.0-dev"
+var version = "0.2.0-dev"
 
 // Env is the injectable environment a command runs against. RealEnv builds one
 // from the process; tests build one from buffers.

@@ -46,19 +46,21 @@ $ sealpup new ui-tweak
 $ pwd
 ~/code/app-worktrees/ui-tweak
 
-# See everything at a glance — dirty state and where you are.
+# See everything at a glance — dirty state, where you are, and which
+# worktrees have a coding agent running in them.
 $ sealpup list
-BRANCH        PATH                                STATUS
-main          ~/code/app                          clean
-payments-fix  ~/code/app-worktrees/payments-fix   3 files
-ui-tweak      ~/code/app-worktrees/ui-tweak       clean    ← you are here
+BRANCH        PATH                               STATUS   AGENT
+main          ~/code/app                         clean    -
+payments-fix  ~/code/app-worktrees/payments-fix  3 files  claude (pid 4812)
+ui-tweak      ~/code/app-worktrees/ui-tweak      clean    -                  ← you are here
 
 # Hop between them instantly.
 $ sealpup enter payments-fix
 $ pwd
 ~/code/app-worktrees/payments-fix
 
-# Done with one? Clean it up (sealpup refuses if you'd lose work).
+# Done with one? Clean it up (sealpup refuses if you'd lose work — or if
+# an agent is still running there).
 $ sealpup enter main
 $ sealpup delete ui-tweak
 ✓ removed worktree for ui-tweak
@@ -100,6 +102,7 @@ sealpup catches the footguns and *offers the fix* instead of just erroring:
 - **`new` a branch that already exists** → offers to make a worktree for it.
 - **`enter` a worktree you `rm -rf`'d** → offers to prune and recreate it.
 - **`enter` a branch with no worktree yet** → offers to create one.
+- **`delete` a worktree with an agent running in it** → refused unless `--force`, naming the agent + pid.
 - **`delete` a dirty worktree** → refused unless `--force`, and it names the files.
 - **`delete` the worktree you're standing in, or `main`** → refused, with a way out.
 - Every command prunes dangling worktrees opportunistically, so state self-heals.
@@ -115,19 +118,63 @@ Next to your repo, in a sibling directory:
   └── ui-tweak
 ```
 
+## Agent detection
+
+`sealpup list` shows which worktrees have a coding agent running, and `delete`
+refuses to pull a worktree out from under one. Detection is live — sealpup scans
+running processes and matches those whose working directory is inside a worktree.
+There's **no state to track and nothing to go stale**: it works even for agents
+you started without sealpup, and clears the moment they exit.
+
+Recognized out of the box: `claude`, `aider`, `codex`, `cursor-agent`, `gemini`,
+`amp`, `goose`, `opencode`, `copilot`. Add your own:
+
+```sh
+export SEALPUP_AGENTS="mytool,another-agent"   # merged with the built-in list
+```
+
+Works on macOS and Linux. (On other platforms `list` simply shows no agents.)
+
+## Per-worktree setup with `.sealpup.toml`
+
+A fresh worktree has no `node_modules`, no `.env` — useless to an agent until you
+set it up. Drop a `.sealpup.toml` at your repo root and sealpup does it on every
+`new`:
+
+```toml
+[hooks]
+# Files copied from the main worktree into each new one (great for gitignored
+# local config that isn't committed).
+copy = [".env", ".env.local"]
+
+# A command run inside the new worktree right after it's created.
+post_create = "pnpm install"
+```
+
+That's the whole format — only `[hooks]` with `copy` (array of strings) and
+`post_create` (string). Anything else is rejected with the offending line number,
+so a bad file fails loudly instead of being silently ignored. Missing `copy`
+sources are skipped with a note (local files legitimately may not exist yet). If
+`post_create` fails, the worktree is kept — fix the hook and `sealpup enter` it.
+
+> **Trust note:** `post_create` runs a command from a file committed to the repo.
+> It's the same trust model as `npm install` postinstall scripts or a Makefile —
+> only run `sealpup new` in repos whose code you'd already run. sealpup always
+> prints the command before executing it.
+
 ## How the auto-`cd` works
 
 `new`/`enter` print the target path to **stdout** and everything else (prompts,
-progress, errors) to **stderr**. The shell shim captures stdout and runs the
-`cd`. Because only stdout is captured, prompts still reach your terminal and
-`sealpup list | grep foo` still works. Run `new`/`enter` without the shim and
+progress, errors, hook output) to **stderr**. The shell shim captures stdout and
+runs the `cd`. Because only stdout is captured, prompts still reach your terminal
+and `sealpup list | grep foo` still works. Run `new`/`enter` without the shim and
 sealpup still prints the path — it just reminds you how to enable auto-`cd`.
 
-## Not yet (v0.2+)
+## Not yet (v0.3+)
 
-Detecting which worktrees have coding agents running, per-worktree setup hooks
-(`.sealpup.toml` to copy `.env` / run `pnpm install`), shell completions, and
-Homebrew packaging.
+Globs and directory copies in `.sealpup.toml`, a direnv-style trust prompt for
+`post_create`, showing the full agent list per worktree, Windows support, shell
+completions, and Homebrew packaging.
 
 ## Development
 
