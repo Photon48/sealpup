@@ -85,3 +85,28 @@ func (p *Prompter) Confirm(question string, defaultYes bool) (answer, notInterac
 func (p *Prompter) Infof(format string, a ...any) {
 	fmt.Fprintf(p.Err, format+"\n", a...)
 }
+
+// Successf writes a green ✓ status line to stderr (plain when color is off).
+func (p *Prompter) Successf(format string, a ...any) {
+	msg := fmt.Sprintf(format, a...)
+	fmt.Fprintln(p.Err, Colorize(p.Color, Green, "✓ ")+msg)
+}
+
+// ANSI color codes and a guard so callers colorize only when appropriate. Color
+// is applied to stderr prose only — never to the list table, whose alignment
+// depends on visible-width bytes.
+const (
+	Reset  = "\x1b[0m"
+	Red    = "\x1b[31m"
+	Green  = "\x1b[32m"
+	Dim    = "\x1b[2m"
+	Yellow = "\x1b[33m"
+)
+
+// Colorize wraps s in an ANSI code when on is true.
+func Colorize(on bool, code, s string) string {
+	if !on {
+		return s
+	}
+	return code + s + Reset
+}

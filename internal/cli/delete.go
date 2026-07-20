@@ -84,7 +84,7 @@ func cmdDelete(e Env, args []string) error {
 		return err
 	}
 	_ = git.Prune(e.Dir)
-	e.prompter().Infof("✓ removed worktree for %s", branch)
+	e.prompter().Successf("removed worktree for %s", branch)
 	removeIfEmpty(repo.Container())
 
 	return e.maybeDeleteBranch(branch, *delBranch, *keepBranch, *force)
@@ -101,7 +101,7 @@ func (e Env) deleteBranchOnly(branch string, delBranch, keepBranch, force bool) 
 	if err := git.DeleteBranch(e.Dir, branch, force); err != nil {
 		return branchDeleteError(branch, force, err)
 	}
-	e.prompter().Infof("✓ deleted branch %s", branch)
+	e.prompter().Successf("deleted branch %s", branch)
 	return nil
 }
 
@@ -117,7 +117,7 @@ func (e Env) maybeDeleteBranch(branch string, delBranch, keepBranch, force bool)
 	if err := git.DeleteBranch(e.Dir, branch, force); err != nil {
 		return branchDeleteError(branch, force, err)
 	}
-	e.prompter().Infof("✓ deleted branch %s", branch)
+	e.prompter().Successf("deleted branch %s", branch)
 	return nil
 }
 

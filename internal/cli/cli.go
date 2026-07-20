@@ -89,13 +89,13 @@ func Run(e Env, args []string) int {
 	if err := cmd(e, rest); err != nil {
 		var ue *ui.UserError
 		if errors.As(err, &ue) {
-			fmt.Fprintf(e.Stderr, "sealpup: %s\n", ue.Msg)
+			fmt.Fprintf(e.Stderr, "%s %s\n", ui.Colorize(e.Color, ui.Red, "sealpup:"), ue.Msg)
 			if ue.Hint != "" {
-				fmt.Fprintf(e.Stderr, "hint: %s\n", ue.Hint)
+				fmt.Fprintf(e.Stderr, "%s %s\n", ui.Colorize(e.Color, ui.Dim, "hint:"), ue.Hint)
 			}
 			return 1
 		}
-		fmt.Fprintf(e.Stderr, "sealpup: %s\n", err)
+		fmt.Fprintf(e.Stderr, "%s %s\n", ui.Colorize(e.Color, ui.Red, "sealpup:"), err)
 		return 1
 	}
 	return 0

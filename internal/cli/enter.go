@@ -67,7 +67,7 @@ func (e Env) createAndEnter(repo *git.Repo, branch string, wts []git.Worktree) e
 	if err := git.AddExisting(e.Dir, dir, branch); err != nil {
 		return err
 	}
-	e.prompter().Infof("✓ created worktree for %s at %s", branch, prettyPath(dir))
+	e.prompter().Successf("created worktree for %s at %s", branch, prettyPath(dir))
 	return e.emitPath(dir)
 }
 

@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -11,10 +13,17 @@ import (
 )
 
 // repo resolves the git repository containing the Env's working directory,
-// translating git's "not a repository" error into a clean UserError.
+// translating git's failures into clean UserErrors: a missing git binary, or a
+// directory that isn't inside a repo.
 func (e Env) repo() (*git.Repo, error) {
 	r, err := git.Discover(e.Dir)
 	if err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return nil, ui.Hintf(
+				"git is not installed or not on your PATH",
+				"install git, then try again",
+			)
+		}
 		return nil, ui.Hintf(
 			"not inside a git repository",
 			"run sealpup from within a git repo, or run 'git init' first",

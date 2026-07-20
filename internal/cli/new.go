@@ -63,7 +63,7 @@ func cmdNew(e Env, args []string) error {
 		}
 	}
 
-	e.prompter().Infof("✓ created worktree for %s at %s", branch, prettyPath(dir))
+	e.prompter().Successf("created worktree for %s at %s", branch, prettyPath(dir))
 	return e.emitPath(dir)
 }
 
