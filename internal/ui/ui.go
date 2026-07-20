@@ -25,6 +25,11 @@ func Errorf(format string, a ...any) *UserError {
 	return &UserError{Msg: fmt.Sprintf(format, a...)}
 }
 
+// Msg builds a UserError from a pre-built (non-format) message.
+func Msg(msg string) *UserError {
+	return &UserError{Msg: msg}
+}
+
 // WithHint returns a copy of e carrying the given hint.
 func (e *UserError) WithHint(format string, a ...any) *UserError {
 	return &UserError{Msg: e.Msg, Hint: fmt.Sprintf(format, a...)}

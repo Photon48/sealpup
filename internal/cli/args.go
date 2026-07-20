@@ -40,3 +40,17 @@ func singleBranchArg(cmd string, args []string) (string, error) {
 
 // quote renders a value in double quotes for messages.
 func quote(s string) string { return strconv.Quote(s) }
+
+// partitionFlags splits args into flag-shaped tokens ("-x", "--x") and
+// positional ones, preserving order within each group. Only valid when every
+// flag is boolean (no flag consumes a following value).
+func partitionFlags(args []string) (flags, positional []string) {
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") && a != "-" {
+			flags = append(flags, a)
+		} else {
+			positional = append(positional, a)
+		}
+	}
+	return flags, positional
+}

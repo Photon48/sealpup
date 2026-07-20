@@ -68,6 +68,20 @@ func (e Env) emitPath(path string) error {
 	return nil
 }
 
+// samePath reports whether two paths point at the same location, resolving
+// symlinks so /var and /private/var compare equal on macOS.
+func samePath(a, b string) bool {
+	ra, err := filepath.EvalSymlinks(a)
+	if err != nil {
+		ra = a
+	}
+	rb, err := filepath.EvalSymlinks(b)
+	if err != nil {
+		rb = b
+	}
+	return ra == rb
+}
+
 // prettyPath shortens an absolute path by replacing the home prefix with ~.
 func prettyPath(p string) string {
 	home, err := os.UserHomeDir()
