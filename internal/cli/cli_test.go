@@ -9,12 +9,17 @@ import (
 // testEnv builds an Env backed by buffers, defaulting to an interactive session
 // that answers "y" to any prompt.
 func testEnv(dir string) (Env, *bytes.Buffer, *bytes.Buffer) {
+	return envWith(dir, "y\n")
+}
+
+// envWith builds an interactive test Env whose prompts are answered by stdin.
+func envWith(dir, stdin string) (Env, *bytes.Buffer, *bytes.Buffer) {
 	var out, errb bytes.Buffer
 	e := Env{
 		Dir:           dir,
 		Stdout:        &out,
 		Stderr:        &errb,
-		Stdin:         strings.NewReader("y\n"),
+		Stdin:         strings.NewReader(stdin),
 		IsInteractive: true,
 		Color:         false,
 		ShimActive:    true,

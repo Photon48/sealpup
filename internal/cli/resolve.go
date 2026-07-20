@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +38,34 @@ func (e Env) isCurrent(path string) bool {
 		return true
 	}
 	return strings.HasPrefix(cwd, wt+string(filepath.Separator))
+}
+
+// confirm asks a yes/no question, routing it to stderr. In a non-interactive
+// session it does not block — it proceeds with the default answer, so scripted
+// use (cd "$(sealpup enter x)") never hangs.
+func (e Env) confirm(question string, defaultYes bool) bool {
+	ans, notInteractive := e.prompter().Confirm(question, defaultYes)
+	if notInteractive {
+		return defaultYes
+	}
+	return ans
+}
+
+// emitPath is the shim contract: print the resolved worktree path (and nothing
+// else) to stdout so the shell function can cd into it. When the shim isn't
+// installed, a stderr note explains why the directory didn't change.
+func (e Env) emitPath(path string) error {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = path
+	}
+	fmt.Fprintln(e.Stdout, abs)
+	if !e.ShimActive {
+		fmt.Fprintf(e.Stderr,
+			"note: sealpup can't change your shell's directory on its own.\n"+
+				"      add this to your shell rc to enable it:  eval \"$(sealpup init zsh)\"\n")
+	}
+	return nil
 }
 
 // prettyPath shortens an absolute path by replacing the home prefix with ~.
