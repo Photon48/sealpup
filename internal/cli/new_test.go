@@ -98,15 +98,27 @@ func TestNew_NotInteractiveDefaultsProceed(t *testing.T) {
 	}
 }
 
-func TestNew_ShimlessNote(t *testing.T) {
+func TestNew_ShimlessNoteShownOnceThenSuppressed(t *testing.T) {
+	t.Setenv("SEALPUP_STATE_DIR", t.TempDir())
 	repo := gittest.New(t)
-	e, _, errb := testEnv(repo.Dir)
-	e.ShimActive = false
 
-	if code := Run(e, []string{"new", "x"}); code != 0 {
+	// First shim-less run: note appears, pointing at `sealpup setup`.
+	e1, _, errb1 := testEnv(repo.Dir)
+	e1.ShimActive = false
+	if code := Run(e1, []string{"new", "first"}); code != 0 {
 		t.Fatalf("new exit = %d, want 0", code)
 	}
-	if !strings.Contains(errb.String(), "sealpup init") {
-		t.Errorf("expected shim-install note when shim inactive, got %q", errb.String())
+	if !strings.Contains(errb1.String(), "sealpup setup") {
+		t.Errorf("expected one-time shim note pointing at 'sealpup setup', got %q", errb1.String())
+	}
+
+	// Second shim-less run: note is suppressed by the stamp.
+	e2, _, errb2 := testEnv(repo.Dir)
+	e2.ShimActive = false
+	if code := Run(e2, []string{"new", "second"}); code != 0 {
+		t.Fatalf("new exit = %d, want 0", code)
+	}
+	if strings.Contains(errb2.String(), "sealpup setup") {
+		t.Errorf("shim note should only appear once, but showed again: %q", errb2.String())
 	}
 }

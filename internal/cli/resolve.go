@@ -62,19 +62,52 @@ func (e Env) confirm(question string, defaultYes bool) bool {
 
 // emitPath is the shim contract: print the resolved worktree path (and nothing
 // else) to stdout so the shell function can cd into it. When the shim isn't
-// installed, a stderr note explains why the directory didn't change.
+// installed it shows a one-time nudge toward `sealpup setup`.
 func (e Env) emitPath(path string) error {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		abs = path
 	}
 	fmt.Fprintln(e.Stdout, abs)
-	if !e.ShimActive {
-		fmt.Fprintf(e.Stderr,
-			"note: sealpup can't change your shell's directory on its own.\n"+
-				"      add this to your shell rc to enable it:  eval \"$(sealpup init zsh)\"\n")
-	}
+	e.maybeShimNote()
 	return nil
+}
+
+// maybeShimNote prints a one-time hint when sealpup isn't wired into the shell,
+// then records a stamp so it never nags again. Once `sealpup setup` has run, the
+// shim is active and this is skipped entirely.
+func (e Env) maybeShimNote() {
+	if e.ShimActive {
+		return
+	}
+	stamp := shimNoteStamp()
+	if stamp != "" {
+		if _, err := os.Stat(stamp); err == nil {
+			return // already shown once on this machine
+		}
+	}
+	fmt.Fprintf(e.Stderr,
+		"note: sealpup isn't wired into this shell yet, so it couldn't change your directory.\n"+
+			"      run  %s  once to enable auto-cd (you won't see this again).\n",
+		ui.Colorize(e.Color, ui.Yellow, "sealpup setup"))
+	if stamp != "" {
+		_ = os.MkdirAll(filepath.Dir(stamp), 0o755)
+		_ = os.WriteFile(stamp, []byte("1\n"), 0o644)
+	}
+}
+
+// shimNoteStamp is the marker file path for the one-time shim note. The state
+// dir is overridable via SEALPUP_STATE_DIR (used in tests).
+func shimNoteStamp() string {
+	dir := os.Getenv("SEALPUP_STATE_DIR")
+	if dir == "" {
+		cache, err := os.UserCacheDir()
+		if err != nil {
+			return ""
+		}
+		dir = filepath.Join(cache, "sealpup")
+	}
+	return filepath.Join(dir, "shim-note-shown")
 }
 
 // samePath reports whether two paths point at the same location, resolving

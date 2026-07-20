@@ -108,6 +108,7 @@ var commands = map[string]command{
 	"list":   cmdList,
 	"delete": cmdDelete,
 	"init":   cmdInit,
+	"setup":  cmdSetup,
 }
 
 func printUsage(w io.Writer) {
@@ -127,10 +128,11 @@ usage:
   sealpup enter <branch>    jump into an existing worktree
   sealpup list              show all worktrees and where you are
   sealpup delete <branch>   remove a worktree (and optionally its branch)
+  sealpup setup [shell]     wire sealpup into your shell (run once)
   sealpup init <shell>      print the shell integration (zsh|bash|fish)
 
 setup (once):
-  eval "$(sealpup init zsh)"   # add to ~/.zshrc
+  sealpup setup                # auto-detects your shell and wires everything up
 
 flags:
   -h, --help       show this help

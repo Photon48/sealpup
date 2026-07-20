@@ -6,33 +6,31 @@ side without them stepping on each other.
 
 ---
 
-## ⚡ Quickstart (2 minutes)
+## ⚡ Quickstart
 
-### 1. Install
-
-```sh
-go install github.com/Photon48/sealpup@latest
-```
-
-### 2. Turn on the shell integration
-
-`new` and `enter` need to change your shell's directory, so add one line to your
-shell config (a binary can't `cd` its parent shell — this shim does it for you):
+### Install (one line)
 
 ```sh
-# zsh  → ~/.zshrc
-eval "$(sealpup init zsh)"
-
-# bash → ~/.bashrc
-eval "$(sealpup init bash)"
-
-# fish → ~/.config/fish/config.fish
-sealpup init fish | source
+curl -fsSL https://raw.githubusercontent.com/Photon48/sealpup/main/install.sh | sh
 ```
 
-Then reload your shell (`exec zsh`, or open a new tab).
+That installs the binary **and** wires it into your shell (PATH + the auto-`cd`
+shim). Open a new terminal and you're done.
 
-### 3. Try it
+<details>
+<summary>Prefer to do it yourself?</summary>
+
+```sh
+go install github.com/Photon48/sealpup@latest   # build the binary
+sealpup setup                                   # wire it into your shell
+```
+
+`sealpup setup` auto-detects your shell (zsh/bash/fish), adds a single managed
+block to your rc file, and is safe to re-run. To only print the shim without
+touching any files, use `sealpup init zsh`.
+</details>
+
+### Try it
 
 From inside any git repo:
 
