@@ -114,6 +114,12 @@ func printUsage(w io.Writer) {
 	fmt.Fprint(w, usage)
 }
 
+// usageErr builds a UserError for a subcommand invoked incorrectly, pointing at
+// its help.
+func usageErr(cmd, msg string) error {
+	return ui.Hintf(msg, "see 'sealpup help' for usage")
+}
+
 const usage = `sealpup — a light, idiot-proof git worktree manager
 
 usage:
