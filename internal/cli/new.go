@@ -24,15 +24,6 @@ func cmdNew(e Env, args []string) error {
 	}
 	_ = git.Prune(e.Dir) // opportunistic self-heal
 
-	dirName := sanitizeDirName(branch)
-	if dirName == "" {
-		return ui.Hintf(
-			"branch name "+quote(branch)+" has no usable characters for a directory name",
-			"pick a branch name with letters or digits",
-		)
-	}
-	dir := filepath.Join(repo.Container(), dirName)
-
 	wts, err := git.Worktrees(e.Dir)
 	if err != nil {
 		return err
@@ -46,19 +37,10 @@ func cmdNew(e Env, args []string) error {
 		return e.emitPath(wt.Path)
 	}
 
-	// Guardrail: the target directory is taken by something else (e.g. a
-	// sanitization collision between feat/foo and feat-foo, or a stray dir).
-	if other := worktreeAtPath(wts, dir); other != nil {
-		return ui.Hintf(
-			"the directory for "+quote(branch)+" is already used by branch "+quote(other.Branch),
-			"choose a branch name that maps to a different directory",
-		)
-	}
-	if _, statErr := os.Stat(dir); statErr == nil {
-		return ui.Hintf(
-			"a directory already exists at "+prettyPath(dir),
-			"remove it, or pick a different branch name",
-		)
+	// Guardrail: sanitization collision or a stray directory in the way.
+	dir, err := planWorktreePath(repo, branch, wts)
+	if err != nil {
+		return err
 	}
 
 	if git.BranchExists(e.Dir, branch) {
