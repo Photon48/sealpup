@@ -27,16 +27,26 @@ func cmdList(e Env, args []string) error {
 		return err
 	}
 
+	// One process scan for the whole table: which agents live in which worktree.
+	var paths []string
+	for _, wt := range wts {
+		if !wt.Bare {
+			paths = append(paths, wt.Path)
+		}
+	}
+	byPath := detectAgents(paths)
+
 	tw := tabwriter.NewWriter(e.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, "BRANCH\tPATH\tSTATUS")
+	fmt.Fprintln(tw, "BRANCH\tPATH\tSTATUS\tAGENT")
 	for _, wt := range wts {
 		branch := branchLabel(wt)
 		path := prettyPath(wt.Path)
 		status := statusLabel(e, wt)
+		agent := agentLabel(byPath[wt.Path])
 		if e.isCurrent(wt.Path) {
-			status += "\t← you are here"
+			agent += "\t← you are here"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", branch, path, status)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", branch, path, status, agent)
 	}
 	if err := tw.Flush(); err != nil {
 		return err

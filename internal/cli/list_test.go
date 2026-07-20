@@ -5,8 +5,49 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Photon48/sealpup/internal/agents"
 	"github.com/Photon48/sealpup/internal/git/gittest"
 )
+
+// stubAgents overrides detectAgents for a test and restores it after.
+func stubAgents(t *testing.T, m map[string][]agents.Agent) {
+	t.Helper()
+	prev := detectAgents
+	detectAgents = func([]string) map[string][]agents.Agent { return m }
+	t.Cleanup(func() { detectAgents = prev })
+}
+
+func TestList_AgentColumn(t *testing.T) {
+	repo := gittest.New(t)
+	wtFoo := filepath.Join(repo.Container(), "foo")
+	repo.Branch("foo")
+	repo.Git("worktree", "add", wtFoo, "foo")
+
+	// git reports the worktree path symlink-resolved (/private/var on macOS);
+	// the real detectAgents keys its result by that same path, so match it.
+	fooKey := repo.Git("-C", wtFoo, "rev-parse", "--show-toplevel")
+	stubAgents(t, map[string][]agents.Agent{
+		fooKey: {{PID: 4812, Name: "claude"}, {PID: 9001, Name: "aider"}},
+	})
+
+	e, out, _ := testEnv(repo.Dir)
+	if code := Run(e, []string{"list"}); code != 0 {
+		t.Fatalf("list exit = %d, want 0", code)
+	}
+	got := out.String()
+	if !strings.Contains(got, "AGENT") {
+		t.Errorf("missing AGENT header:\n%s", got)
+	}
+	if !strings.Contains(got, "claude (pid 4812) +1") {
+		t.Errorf("expected agent cell 'claude (pid 4812) +1':\n%s", got)
+	}
+	// The main worktree row shows no agent.
+	for _, line := range strings.Split(got, "\n") {
+		if strings.HasPrefix(line, "main") && !strings.Contains(line, "-") {
+			t.Errorf("main row should show '-' for agent: %q", line)
+		}
+	}
+}
 
 func TestList(t *testing.T) {
 	repo := gittest.New(t)
