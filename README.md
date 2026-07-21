@@ -28,6 +28,12 @@ sealpup setup                                   # wire it into your shell
 `sealpup setup` auto-detects your shell (zsh/bash/fish), adds a single managed
 block to your rc file, and is safe to re-run. To only print the shim without
 touching any files, use `sealpup init zsh`.
+
+On **bash** the block lands in `~/.bashrc`, and setup also makes your login file
+(`~/.bash_profile`, else `~/.bash_login`/`~/.profile`) source `~/.bashrc`. That's
+what makes the pre-installed bash on macOS work: a Terminal session there is a
+*login* shell, which reads `~/.bash_profile` and never `~/.bashrc` on its own.
+Setup leaves your login file untouched if it already sources `~/.bashrc`.
 </details>
 
 ### Try it
@@ -90,6 +96,7 @@ each isolated in its own branch.
 | `sealpup list` | Show every worktree, its dirty status, and where you are. |
 | `sealpup delete <branch>` | Remove a worktree (and optionally its branch). |
 | `sealpup init <shell>` | Print the shell integration (`zsh`/`bash`/`fish`). |
+| `sealpup update` | Upgrade sealpup to the latest release. |
 
 `delete` flags: `--force` (remove even if dirty), `--branch` (also delete the
 branch, no prompt), `--keep-branch` (delete only the worktree).
@@ -161,6 +168,24 @@ sources are skipped with a note (local files legitimately may not exist yet). If
 > It's the same trust model as `npm install` postinstall scripts or a Makefile —
 > only run `sealpup new` in repos whose code you'd already run. sealpup always
 > prints the command before executing it.
+
+## Staying up to date
+
+sealpup checks for new releases at most **once a day**, in the background, and
+never blocks a command on the network: it asks the Go module proxy (the same
+source `go install @latest` resolves) and caches the answer. When a newer
+release exists you get a one-line reminder on stderr:
+
+```
+🦭 sealpup v0.3.0 is available (you have v0.2.0) — run `sealpup update`
+```
+
+`sealpup update` reinstalls the latest release the same way the installer does
+(re-running the curl one-liner works too). To disable the check entirely:
+
+```sh
+export SEALPUP_NO_UPDATE_CHECK=1
+```
 
 ## How the auto-`cd` works
 

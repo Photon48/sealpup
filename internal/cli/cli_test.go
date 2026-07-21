@@ -2,9 +2,17 @@ package cli
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 )
+
+// TestMain disables the background update check for every cli test — Run()
+// would otherwise reach out to the real module proxy from CI.
+func TestMain(m *testing.M) {
+	os.Setenv("SEALPUP_NO_UPDATE_CHECK", "1")
+	os.Exit(m.Run())
+}
 
 // testEnv builds an Env backed by buffers, defaulting to an interactive session
 // that answers "y" to any prompt.

@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/Photon48/sealpup/internal/ui"
+	"github.com/Photon48/sealpup/internal/update"
 )
 
 // version is the sealpup release string, overridable at build time via
@@ -86,6 +88,15 @@ func Run(e Env, args []string) int {
 		return 2
 	}
 
+	// Kick off the once-daily update check so it overlaps the command's own
+	// work. Skipped for init (its output is eval'd by shell rc files) and for
+	// update itself.
+	var refreshed <-chan struct{}
+	if name != "init" && name != "update" {
+		refreshed = update.StartRefresh()
+	}
+
+	code := 0
 	if err := cmd(e, rest); err != nil {
 		var ue *ui.UserError
 		if errors.As(err, &ue) {
@@ -93,12 +104,20 @@ func Run(e Env, args []string) int {
 			if ue.Hint != "" {
 				fmt.Fprintf(e.Stderr, "%s %s\n", ui.Colorize(e.Color, ui.Dim, "hint:"), ue.Hint)
 			}
-			return 1
+			code = 1
+		} else {
+			fmt.Fprintf(e.Stderr, "%s %s\n", ui.Colorize(e.Color, ui.Red, "sealpup:"), err)
+			code = 1
 		}
-		fmt.Fprintf(e.Stderr, "%s %s\n", ui.Colorize(e.Color, ui.Red, "sealpup:"), err)
-		return 1
 	}
-	return 0
+
+	if refreshed != nil {
+		update.Wait(refreshed, 500*time.Millisecond)
+		if n := update.Notice(update.Current(version)); n != "" {
+			fmt.Fprintln(e.Stderr, n)
+		}
+	}
+	return code
 }
 
 // commands is the subcommand registry, populated by each command's file.
@@ -109,6 +128,7 @@ var commands = map[string]command{
 	"delete": cmdDelete,
 	"init":   cmdInit,
 	"setup":  cmdSetup,
+	"update": cmdUpdate,
 }
 
 func printUsage(w io.Writer) {
@@ -130,6 +150,7 @@ usage:
   sealpup delete <branch>   remove a worktree (and optionally its branch)
   sealpup setup [shell]     wire sealpup into your shell (run once)
   sealpup init <shell>      print the shell integration (zsh|bash|fish)
+  sealpup update            upgrade sealpup to the latest release
 
 setup (once):
   sealpup setup                # auto-detects your shell and wires everything up
