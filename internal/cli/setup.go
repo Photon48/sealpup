@@ -56,10 +56,84 @@ func cmdSetup(e Env, args []string) error {
 	if err := writeSetupBlock(rc, string(existing), block, force); err != nil {
 		return ui.Errorf("could not update %s: %v", prettyPath(rc), err)
 	}
-
 	e.prompter().Successf("wired sealpup into %s", prettyPath(rc))
+
+	// bash reads ~/.bashrc only for non-login interactive shells. On macOS an
+	// interactive Terminal session is a *login* shell (and login shells exist on
+	// Linux too), which reads ~/.bash_profile and never ~/.bashrc — so without
+	// this the block above would silently never load. Make the login rc source
+	// ~/.bashrc so bash users are covered whichever way their shell starts.
+	if shell == "bash" {
+		login, changed, err := linkBashLoginToRC(rc)
+		if err != nil {
+			return ui.Errorf("could not update %s: %v", prettyPath(login), err)
+		}
+		if changed {
+			e.prompter().Successf("made %s load %s (needed for login shells, e.g. macOS Terminal)", prettyPath(login), prettyPath(rc))
+		}
+	}
+
 	e.prompter().Infof("restart your shell, or run:  %s", reloadHint(shell, rc))
 	return nil
+}
+
+// linkBashLoginToRC ensures bash's login startup file sources rc (~/.bashrc), so
+// the managed block loads in login shells that never read ~/.bashrc themselves.
+// It returns the login file it targeted and whether it changed anything: it is a
+// no-op when a login file already sources ~/.bashrc or already carries our block.
+func linkBashLoginToRC(rc string) (login string, changed bool, err error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", false, err
+	}
+	login = bashLoginRC(home)
+	existing, _ := os.ReadFile(login)
+	// Don't duplicate our own block, and don't fight a setup that already sources
+	// ~/.bashrc (the common Linux default, or a hand-rolled ~/.bash_profile).
+	if strings.Contains(string(existing), markerStart) || bashAlreadySourcesRC(string(existing)) {
+		return login, false, nil
+	}
+	block := bashLoginBlock(rc)
+	if err := writeSetupBlock(login, string(existing), block, false); err != nil {
+		return login, false, err
+	}
+	return login, true, nil
+}
+
+// bashLoginRC returns the file bash reads at login: the first existing of
+// ~/.bash_profile, ~/.bash_login, ~/.profile (bash's own search order), else
+// ~/.bash_profile to create. Appending to an existing ~/.profile avoids shadowing
+// it — creating ~/.bash_profile would stop bash from reading ~/.profile at all.
+func bashLoginRC(home string) string {
+	for _, name := range []string{".bash_profile", ".bash_login", ".profile"} {
+		p := filepath.Join(home, name)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return filepath.Join(home, ".bash_profile")
+}
+
+// bashAlreadySourcesRC reports whether a login file already loads ~/.bashrc, so
+// we leave a working setup (or a distro default) untouched.
+func bashAlreadySourcesRC(content string) bool {
+	return strings.Contains(content, ".bashrc")
+}
+
+// bashLoginBlock is the managed block for the login rc: source ~/.bashrc if it
+// exists so the real sealpup block (and the rest of ~/.bashrc) loads.
+func bashLoginBlock(rc string) string {
+	home, _ := os.UserHomeDir()
+	ref := rc
+	if home != "" && strings.HasPrefix(rc, home) {
+		ref = "$HOME" + rc[len(home):]
+	}
+	var b strings.Builder
+	b.WriteString(markerStart + "  (managed by `sealpup setup` — delete this block to uninstall)\n")
+	b.WriteString("# Login shells (macOS Terminal, ssh) read this file, not ~/.bashrc.\n")
+	b.WriteString("[ -f \"" + ref + "\" ] && . \"" + ref + "\"\n")
+	b.WriteString(markerEnd + "\n")
+	return b.String()
 }
 
 // resolveShell picks the shell from an explicit arg, else the $SHELL basename.
