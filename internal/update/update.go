@@ -1,7 +1,7 @@
 // Package update implements sealpup's self-update plumbing: resolving the
 // latest tagged release from the Go module proxy — the exact source
 // `go install @latest` uses, so the reminder and the updater can never
-// disagree — caching the answer once a day, and deciding when a newer-version
+// disagree — caching the answer once an hour, and deciding when a newer-version
 // reminder should be shown. Nothing here ever blocks a command on the network:
 // reminders are printed from the cache, and the cache refreshes in the
 // background.
@@ -21,8 +21,10 @@ import (
 // Module is the sealpup module path — also what `sealpup update` installs.
 const Module = "github.com/Photon48/sealpup"
 
-// interval is how often the proxy is asked for the latest version.
-const interval = 24 * time.Hour
+// interval is how often the proxy is asked for the latest version. Hourly is
+// the useful floor: the proxy caches its @latest answer for ~30 minutes, so
+// polling faster than this buys nothing.
+const interval = time.Hour
 
 // proxyBase returns the module proxy to query, overridable via
 // SEALPUP_UPDATE_URL so tests can point it at a fake server.
@@ -170,7 +172,7 @@ func Notice(current string) string {
 	return "🦭 sealpup " + c.Latest + " is available (you have " + normalize(current) + ") — run `sealpup update`"
 }
 
-// StartRefresh kicks off the once-daily background check and returns a channel
+// StartRefresh kicks off the hourly background check and returns a channel
 // that closes when it's done. When no refresh is due (fresh cache, opt-out via
 // SEALPUP_NO_UPDATE_CHECK=1) the channel is already closed. Callers bound
 // their wait with Wait — a command is never blocked on the network.

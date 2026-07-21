@@ -171,7 +171,7 @@ sources are skipped with a note (local files legitimately may not exist yet). If
 
 ## Staying up to date
 
-sealpup checks for new releases at most **once a day**, in the background, and
+sealpup checks for new releases at most **once an hour**, in the background, and
 never blocks a command on the network: it asks the Go module proxy (the same
 source `go install @latest` resolves) and caches the answer. When a newer
 release exists you get a one-line reminder on stderr:

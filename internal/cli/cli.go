@@ -88,7 +88,7 @@ func Run(e Env, args []string) int {
 		return 2
 	}
 
-	// Kick off the once-daily update check so it overlaps the command's own
+	// Kick off the hourly update check so it overlaps the command's own
 	// work. Skipped for init (its output is eval'd by shell rc files) and for
 	// update itself.
 	var refreshed <-chan struct{}
