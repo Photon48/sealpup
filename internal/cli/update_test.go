@@ -1,24 +1,37 @@
 package cli
 
 import (
-	"net/http"
-	"net/http/httptest"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
+// taggedOrigin creates a local git repo carrying a release tag, usable as the
+// SEALPUP_ORIGIN_URL update resolves releases from.
+func taggedOrigin(t *testing.T, tag string) string {
+	t.Helper()
+	repo := t.TempDir()
+	for _, args := range [][]string{
+		{"init", "-q"},
+		{"-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "init"},
+		{"tag", tag},
+	} {
+		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	return repo
+}
+
 func TestUpdate_AlreadyUpToDate(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"Version":"v0.1.0"}`))
-	}))
-	defer srv.Close()
-	t.Setenv("SEALPUP_UPDATE_URL", srv.URL)
+	t.Setenv("SEALPUP_ORIGIN_URL", taggedOrigin(t, "v0.1.0"))
 
-	// The proxy's latest (v0.1.0) is not newer than the running build, so no
+	// The origin's latest (v0.1.0) is not newer than the running build, so no
 	// `go install` runs — the command reports up to date and exits 0.
 	old := version
 	version = "0.5.0"

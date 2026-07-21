@@ -8,9 +8,12 @@
 package update
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
@@ -234,4 +237,48 @@ func (e *httpError) Error() string { return "module proxy: " + e.msg }
 // a successful `sealpup update` so the reminder disappears immediately.
 func MarkLatest(v string) {
 	writeCache(cacheEntry{CheckedAt: time.Now(), Latest: v})
+}
+
+// originURL is the git remote release tags are read from, overridable via
+// SEALPUP_ORIGIN_URL for tests.
+func originURL() string {
+	if u := os.Getenv("SEALPUP_ORIGIN_URL"); u != "" {
+		return u
+	}
+	return "https://" + Module + ".git"
+}
+
+// LatestFromOrigin asks the git remote for its release tags directly. The
+// module proxy caches its @latest answer for ~30 minutes, so a user running
+// `sealpup update` right after a release would otherwise be told they're
+// already up to date — the origin repo is immediate and authoritative.
+func LatestFromOrigin(timeout time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "git", "ls-remote", "--tags", originURL()).Output()
+	if err != nil {
+		return "", err
+	}
+	v := maxReleaseTag(string(out))
+	if v == "" {
+		return "", errors.New("no release tags at origin")
+	}
+	return v, nil
+}
+
+// maxReleaseTag picks the highest vX.Y.Z tag out of git ls-remote --tags
+// output, ignoring peeled ^{} refs and non-release tags.
+func maxReleaseTag(out string) string {
+	best := ""
+	for _, line := range strings.Split(out, "\n") {
+		_, ref, ok := strings.Cut(line, "refs/tags/")
+		if !ok {
+			continue
+		}
+		ref = strings.TrimSuffix(ref, "^{}")
+		if IsRelease(ref) && (best == "" || Newer(ref, best)) {
+			best = ref
+		}
+	}
+	return best
 }

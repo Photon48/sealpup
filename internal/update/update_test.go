@@ -43,6 +43,21 @@ func TestNewer(t *testing.T) {
 	}
 }
 
+func TestMaxReleaseTag(t *testing.T) {
+	out := "abc\trefs/tags/v0.2.0\n" +
+		"def\trefs/tags/v0.10.0\n" + // numeric compare, not lexical
+		"def\trefs/tags/v0.10.0^{}\n" + // peeled ref ignored as duplicate
+		"ghi\trefs/tags/v0.9.9\n" +
+		"jkl\trefs/tags/nightly\n" + // non-release tag ignored
+		"mno\trefs/tags/v1.0.0-rc1\n" // prerelease ignored
+	if got := maxReleaseTag(out); got != "v0.10.0" {
+		t.Fatalf("maxReleaseTag = %q, want v0.10.0", got)
+	}
+	if got := maxReleaseTag("abc\trefs/heads/main\n"); got != "" {
+		t.Fatalf("expected no release tag, got %q", got)
+	}
+}
+
 func TestEscapeModule(t *testing.T) {
 	if got := escapeModule("github.com/Photon48/sealpup"); got != "github.com/!photon48/sealpup" {
 		t.Fatalf("escapeModule = %q", got)

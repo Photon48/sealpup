@@ -25,22 +25,34 @@ func cmdUpdate(e Env, args []string) error {
 	}
 
 	current := update.Current(version)
-	latest, ferr := update.FetchLatest(5 * time.Second)
-	if ferr == nil && update.IsRelease(current) && !update.Newer(latest, current) {
+	// Resolve the newest release straight from the git origin — the module
+	// proxy's @latest answer can lag a fresh tag by ~30 minutes. Fall back to
+	// the proxy if the origin is unreachable.
+	latest, lerr := update.LatestFromOrigin(10 * time.Second)
+	if lerr != nil {
+		latest, lerr = update.FetchLatest(5 * time.Second)
+	}
+	if lerr == nil && update.IsRelease(current) && !update.Newer(latest, current) {
 		update.MarkLatest(latest)
 		e.prompter().Successf("already up to date (%s)", current)
 		return nil
 	}
 
-	e.prompter().Infof("installing %s@latest ...", update.Module)
-	cmd := exec.Command(gobin, "install", update.Module+"@latest")
+	// Install the exact resolved version: explicit versions are fetched by the
+	// proxy on demand (no @latest cache lag).
+	target := update.Module + "@latest"
+	if lerr == nil {
+		target = update.Module + "@" + latest
+	}
+	e.prompter().Infof("installing %s ...", target)
+	cmd := exec.Command(gobin, "install", target)
 	cmd.Stdout = e.Stderr // keep stdout clean for the shell shim
 	cmd.Stderr = e.Stderr
 	if err := cmd.Run(); err != nil {
 		return ui.Errorf("go install failed: %v", err)
 	}
 
-	if ferr == nil {
+	if lerr == nil {
 		update.MarkLatest(latest)
 		e.prompter().Successf("updated to %s", latest)
 	} else {
