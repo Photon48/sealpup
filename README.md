@@ -25,9 +25,11 @@ go install github.com/Photon48/sealpup@latest   # build the binary
 sealpup setup                                   # wire it into your shell
 ```
 
-`sealpup setup` auto-detects your shell (zsh/bash/fish), adds a single managed
-block to your rc file, and is safe to re-run. To only print the shim without
-touching any files, use `sealpup init zsh`.
+`sealpup setup` wires **both zsh and bash** (plus fish if you have a fish
+config) — your login shell says nothing about which shell you actually type
+into, so both just work. It adds one managed block per rc file, is safe to
+re-run, and `sealpup setup bash` wires a single shell explicitly. To only print
+the shim without touching any files, use `sealpup init zsh`.
 
 On **bash** the block lands in `~/.bashrc`, and setup also makes your login file
 (`~/.bash_profile`, else `~/.bash_login`/`~/.profile`) source `~/.bashrc`. That's

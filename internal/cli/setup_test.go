@@ -71,6 +71,49 @@ func TestSetup_Fish(t *testing.T) {
 	}
 }
 
+func TestSetup_NoArgWiresZshAndBash(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SHELL", "/bin/zsh")
+
+	e, _, errb := testEnv(home)
+	if code := Run(e, []string{"setup"}); code != 0 {
+		t.Fatalf("setup exit = %d, want 0\n%s", code, errb.String())
+	}
+
+	// Both shells get wired: $SHELL only says the login shell, not what the
+	// user actually types into (macOS ships bash alongside zsh).
+	zrc, _ := os.ReadFile(filepath.Join(home, ".zshrc"))
+	if !strings.Contains(string(zrc), `eval "$(sealpup init zsh)"`) {
+		t.Errorf(".zshrc not wired:\n%s", zrc)
+	}
+	brc, _ := os.ReadFile(filepath.Join(home, ".bashrc"))
+	if !strings.Contains(string(brc), `eval "$(sealpup init bash)"`) {
+		t.Errorf(".bashrc not wired:\n%s", brc)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".bash_profile")); err != nil {
+		t.Error("bash login link missing")
+	}
+	// fish is only wired when its config already exists.
+	if _, err := os.Stat(filepath.Join(home, ".config", "fish", "config.fish")); err == nil {
+		t.Error("fish should not be wired without an existing config")
+	}
+}
+
+func TestSetup_ExplicitShellWiresOnlyThat(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SHELL", "/bin/zsh")
+
+	e, _, _ := testEnv(home)
+	if code := Run(e, []string{"setup", "zsh"}); code != 0 {
+		t.Fatal("setup zsh failed")
+	}
+	if _, err := os.Stat(filepath.Join(home, ".bashrc")); err == nil {
+		t.Error("explicit `setup zsh` should not touch .bashrc")
+	}
+}
+
 func TestSetup_BashLinksLoginRC(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

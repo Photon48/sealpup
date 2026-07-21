@@ -16,9 +16,10 @@ const (
 	markerEnd   = "# <<< sealpup <<<"
 )
 
-// cmdSetup wires sealpup into the user's shell in one step: it puts the binary's
-// directory on PATH and enables the auto-cd shim, writing a single managed block
-// to the right rc file. Running it again is a no-op unless --force.
+// cmdSetup wires sealpup into the user's shells in one step: it puts the
+// binary's directory on PATH and enables the auto-cd shim, writing a single
+// managed block to each shell's rc file. Running it again is a no-op unless
+// --force.
 func cmdSetup(e Env, args []string) error {
 	flags, positional := partitionFlags(args)
 	force := false
@@ -28,35 +29,84 @@ func cmdSetup(e Env, args []string) error {
 		}
 	}
 
-	shell, err := resolveShell(positional)
-	if err != nil {
-		return err
-	}
-	if _, ok := shim.For(shell); !ok {
-		return ui.Hintf(
-			"can't set up unsupported shell "+quote(shell),
-			"supported shells: "+strings.Join(shim.Supported, ", "),
-		)
-	}
-
-	rc, err := rcPath(shell)
+	shells, err := resolveShells(positional)
 	if err != nil {
 		return err
 	}
 	binDir := executableDir()
 
+	for _, shell := range shells {
+		if err := setupShell(e, shell, binDir, force); err != nil {
+			return err
+		}
+	}
+
+	rc, _ := rcPath(shells[0])
+	e.prompter().Infof("restart your shell, or run:  %s", reloadHint(shells[0], rc))
+	return nil
+}
+
+// resolveShells picks which shells to wire. An explicit arg wires exactly that
+// shell. With no arg, both zsh and bash are wired — macOS defaults to zsh but
+// ships bash too, and $SHELL can't tell us which one the user actually types
+// into — plus fish when its config already exists. The $SHELL shell is listed
+// first so the final reload hint matches the session the user is likely in.
+func resolveShells(positional []string) ([]string, error) {
+	if len(positional) > 1 {
+		return nil, ui.Errorf("setup takes at most one shell name")
+	}
+	if len(positional) == 1 {
+		shell := positional[0]
+		if _, ok := shim.For(shell); !ok {
+			return nil, ui.Hintf(
+				"can't set up unsupported shell "+quote(shell),
+				"supported shells: "+strings.Join(shim.Supported, ", "),
+			)
+		}
+		return []string{shell}, nil
+	}
+
+	shells := []string{"zsh", "bash"}
+	detected := ""
+	if sh := os.Getenv("SHELL"); sh != "" {
+		detected = filepath.Base(sh)
+	}
+	fishCfg := false
+	if home, err := os.UserHomeDir(); err == nil {
+		if _, err := os.Stat(filepath.Join(home, ".config", "fish", "config.fish")); err == nil {
+			fishCfg = true
+		}
+	}
+	if fishCfg || detected == "fish" {
+		shells = append(shells, "fish")
+	}
+	// Move the detected shell to the front for the reload hint.
+	for i, s := range shells {
+		if s == detected && i > 0 {
+			shells = append([]string{s}, append(shells[:i:i], shells[i+1:]...)...)
+			break
+		}
+	}
+	return shells, nil
+}
+
+// setupShell writes one shell's managed block, skipping cleanly when it's
+// already present.
+func setupShell(e Env, shell, binDir string, force bool) error {
+	rc, err := rcPath(shell)
+	if err != nil {
+		return err
+	}
 	existing, _ := os.ReadFile(rc)
 	if strings.Contains(string(existing), markerStart) && !force {
 		e.prompter().Infof("sealpup is already set up in %s", prettyPath(rc))
-		e.prompter().Infof("restart your shell (or run %s) to pick up changes", reloadHint(shell, rc))
-		return nil
+	} else {
+		block := setupBlock(shell, binDir)
+		if err := writeSetupBlock(rc, string(existing), block, force); err != nil {
+			return ui.Errorf("could not update %s: %v", prettyPath(rc), err)
+		}
+		e.prompter().Successf("wired sealpup into %s", prettyPath(rc))
 	}
-
-	block := setupBlock(shell, binDir)
-	if err := writeSetupBlock(rc, string(existing), block, force); err != nil {
-		return ui.Errorf("could not update %s: %v", prettyPath(rc), err)
-	}
-	e.prompter().Successf("wired sealpup into %s", prettyPath(rc))
 
 	// bash reads ~/.bashrc only for non-login interactive shells. On macOS an
 	// interactive Terminal session is a *login* shell (and login shells exist on
@@ -72,8 +122,6 @@ func cmdSetup(e Env, args []string) error {
 			e.prompter().Successf("made %s load %s (needed for login shells, e.g. macOS Terminal)", prettyPath(login), prettyPath(rc))
 		}
 	}
-
-	e.prompter().Infof("restart your shell, or run:  %s", reloadHint(shell, rc))
 	return nil
 }
 
@@ -134,23 +182,6 @@ func bashLoginBlock(rc string) string {
 	b.WriteString("[ -f \"" + ref + "\" ] && . \"" + ref + "\"\n")
 	b.WriteString(markerEnd + "\n")
 	return b.String()
-}
-
-// resolveShell picks the shell from an explicit arg, else the $SHELL basename.
-func resolveShell(positional []string) (string, error) {
-	if len(positional) > 1 {
-		return "", ui.Errorf("setup takes at most one shell name")
-	}
-	if len(positional) == 1 {
-		return positional[0], nil
-	}
-	if sh := os.Getenv("SHELL"); sh != "" {
-		return filepath.Base(sh), nil
-	}
-	return "", ui.Hintf(
-		"couldn't detect your shell",
-		"pass it explicitly:  sealpup setup zsh",
-	)
 }
 
 // rcPath returns the shell's startup file, creating parent dirs for fish.
